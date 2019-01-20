@@ -1,10 +1,16 @@
 import tweepy
 import re
-from string import punctuation
-from nltk.tokenize import TweetTokenizer
+import sys
 import preprocessor
 import contractions
+from string import punctuation
+from nltk.tokenize import TweetTokenizer
+from gensim.models import Word2Vec
+
 tknzr = TweetTokenizer(strip_handles=True)
+model = Word2Vec.load("word2vec.model")
+f = open(sys.argv[2], "w+")
+f.write("Good,Bad\n")
 
 
 class MyStreamListener(tweepy.StreamListener):
@@ -15,7 +21,14 @@ class MyStreamListener(tweepy.StreamListener):
             tweet = status.text
         tweet = initialPreprocess(tweet)
         tweet = custom_preprocess(tweet)
-        print(tweet)
+        tweetArray = tweet.split(' ')
+        cumGood = 0
+        cumBad = 0
+        for word in tweetArray:
+            if word in model.wv.vocab:
+                cumGood += model.wv.similarity(word, "good")
+                cumBad += model.wv.similarity(word, "bad")
+        f.write(str(cumGood)+","+str(cumBad)+"\n")
 
 
 def getTweets(query, api):
@@ -36,7 +49,8 @@ def strip_punctuation(tweet):
 
 
 def strip_rt(tweet):
-    return tweet.replace('rt  ', '')
+    tweet = tweet.replace('rt  ', '')
+    return tweet.replace(' rt ', '')
 
 
 def fix_contractions(tweet):
@@ -69,7 +83,8 @@ def main():
 
     myStreamListener = MyStreamListener()
     myStream = tweepy.Stream(auth=api.auth, listener=myStreamListener)
-    myStream.filter(languages=["en"], track=['pizza'])
+    myStream.filter(languages=["en"], track=[sys.argv[1]])
+
 
 
 if __name__ == "__main__":
